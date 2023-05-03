@@ -6,6 +6,8 @@ from slack_sdk.errors import SlackApiError
 from slackeventsapi import SlackEventAdapter
 from flask import Flask, request, make_response
 from dotenv import load_dotenv
+import requests
+import json
 
 load_dotenv()
 
