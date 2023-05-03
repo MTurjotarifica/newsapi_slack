@@ -72,6 +72,7 @@ def newsapi():
     response = api.news_api(q='o2 OR vodafone OR telekom', country='de')
     articles = response['results']
 
+    article_list = []
     for article in articles:
         pub_date = datetime.datetime.strptime(article['pubDate'], '%Y-%m-%d %H:%M:%S').date()
         if (today - pub_date).days < 3:
@@ -87,39 +88,51 @@ def newsapi():
                 
                 # Check if the keyword 'Telekom Baskets Bonn' is in the content or description
                 if 'Telekom Baskets Bonn' not in content_translated and 'Telekom Baskets Bonn' not in description_translated:
-                    link = article['link']
-                    title = translate_text(article['title'])
-                    if description_translated:
-                        filename = f"article_text.md"
-                        with open(filename, 'w') as f:
-                            f.write(description_translated)
+                    article_dict = {'Title': translate_text(article['title']), 
+                                    'Link': article['link'], 
+                                    'Keywords': article['keywords'], 
+                                    'Creator': article['creator'], 
+                                    'Description': description_translated, 
+                                    'Content': content_translated, 
+                                    'PubDate': article['pubDate'], 
+                                    'Image URL': article['image_url'], 
+                                    'Category': category}
+                    article_list.append(article_dict)
 
-                        try:
-                            response = client.chat_postMessage(
-                                channel=channel_id,
-                                text=f"• <{link}|{title}>\n",
-                                unfurl_links=False,
-                            )
 
-                            with open(filename, 'r') as f:
-                                content = f.read()
+    df_new = pd.DataFrame(article_list)
 
-                            response = client.files_upload(
-                                channels=channel_id,
-                                file=filename,
-                                filename='article_text.md'
-                            )
-                            # print(f"Message sent to Slack. Timestamp: {response['ts']}")
+    # Send the new links and translated text to Slack
+    for index, row in df_new.iterrows():
+        link = row['Link']
+        description = row['Description']
+        print(description)
+        title = translate_text(row['Title'])
 
-                        except SlackApiError as e:
-                            print("Error sending message to Slack: {}".format(e))
+        # Save the text to a file with the name format <article_title>_text.md
+        if description:
+            filename = f"article_text.md"
+            with open(filename, 'w') as f:
+                f.write(description)
 
-                        # Send the Slack message with the translated title and a link to the text.md file
-                        # send_to_slack(title, link, filename)
-                    else:
-                        # Send the Slack message with the translated title and no description text
-                        # send_to_slack(title, link, '')
-                        print("oops")
+            try:
+                response = client.chat_postMessage(
+                    channel=channel_id,
+                    text=f"• <{link}|{title}>\n",
+                    unfurl_links=False,
+                )
+                with open(filename, 'r') as f:
+                    content = f.read()
+
+                
+                response = client.files_upload(channels=channel_id,
+                                                file=filename,                                              
+                                                )
+
+            except SlackApiError as e:
+                print("Error sending message to Slack: {}".format(e))
+        else:
+            print("oops")
             
 
 # Start the Slack app using the Flask app as a middleware
