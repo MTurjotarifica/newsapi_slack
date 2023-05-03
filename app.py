@@ -96,7 +96,7 @@ def newsapi():
 
                         try:
                             response = client.chat_postMessage(
-                                channel="#random",
+                                channel=channel_id,
                                 text=f"• <{link}|{title}>\n",
                                 unfurl_links=False,
                             )
@@ -105,7 +105,7 @@ def newsapi():
                                 content = f.read()
 
                             response = client.files_upload(
-                                channels='#random',
+                                channels=channel_id,
                                 file=filename,
                                 filename='article_text.md'
                             )
