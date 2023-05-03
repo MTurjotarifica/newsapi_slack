@@ -89,17 +89,37 @@ def newsapi():
                 if 'Telekom Baskets Bonn' not in content_translated and 'Telekom Baskets Bonn' not in description_translated:
                     link = article['link']
                     title = translate_text(article['title'])
-                    message = f"• <{link}|{title}>\n"
                     if description_translated:
-                        message += f"{description_translated}"
-                    try:
-                        response = client.chat_postMessage(
-                            channel=channel_id,
-                            text=message,
-                            unfurl_links=False,
-                        )
-                    except SlackApiError as e:
-                        print("Error sending message to Slack: {}".format(e))
+                        filename = f"article_text.md"
+                        with open(filename, 'w') as f:
+                            f.write(description_translated)
+
+                        try:
+                            response = client.chat_postMessage(
+                                channel="#random",
+                                text=f"• <{link}|{title}>\n",
+                                unfurl_links=False,
+                            )
+
+                            with open(filename, 'r') as f:
+                                content = f.read()
+
+                            response = client.files_upload(
+                                channels='#random',
+                                file=filename,
+                                filename='article_text.md'
+                            )
+                            # print(f"Message sent to Slack. Timestamp: {response['ts']}")
+
+                        except SlackApiError as e:
+                            print("Error sending message to Slack: {}".format(e))
+
+                        # Send the Slack message with the translated title and a link to the text.md file
+                        # send_to_slack(title, link, filename)
+                    else:
+                        # Send the Slack message with the translated title and no description text
+                        # send_to_slack(title, link, '')
+                        print("oops")
             
 
 # Start the Slack app using the Flask app as a middleware
