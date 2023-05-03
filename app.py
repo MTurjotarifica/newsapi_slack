@@ -30,7 +30,7 @@ def handle_slash_command():
 
     # Execute the appropriate function based on the command
     if command == "/example":
-        client.chat_postMessage(channel=channel_id, text="it worksssss! max date"
+        client.chat_postMessage(channel=channel_id, text="it worksssss! max date")
         response_text = handle_example_command(text)
     else:
         response_text = "Unknown command: {}".format(command)
