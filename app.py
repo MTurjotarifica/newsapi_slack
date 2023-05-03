@@ -26,17 +26,21 @@ def handle_slash_command():
     # Parse the command and its parameters from the request
     command = request.form.get("command")
     text = request.form.get("text")
+    channel_id = request.form.get("channel_id")
 
     # Execute the appropriate function based on the command
     if command == "/example":
+        client.chat_postMessage(channel=channel_id, text="it worksssss! max date"
         response_text = handle_example_command(text)
     else:
         response_text = "Unknown command: {}".format(command)
 
-    # Return the response to Slack
-    response = make_response(response_text)
-    response.headers["Content-type"] = "application/json"
-    return response
+    # Send the response to the channel
+#     slack_app.client.chat_postMessage(channel=response_url, text=response_text)
+
+
+    # Return an empty response to Slack
+    return make_response("", 200)
 
 # Add a route for the /hello command
 @app.route("/hello", methods=["POST"])
