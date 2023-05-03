@@ -9,7 +9,18 @@ from dotenv import load_dotenv
 import requests
 import json
 
+import pandas as pd
+from openpyxl import load_workbook
+from newsdataapi import NewsDataApiClient
+import datetime
+import deepl
+
 load_dotenv()
+
+def translate_text(text):
+        translator = deepl.Translator('bb771f1c-93f7-4ee5-ceed-74dad6649600')
+        result = translator.translate_text(text, target_lang='EN-US')
+        return result.text
 
 # Initialize the Flask app and the Slack app
 app = Flask(__name__)
@@ -50,6 +61,46 @@ def handle_hello_request():
     # Execute the /hello command function
     client.chat_postMessage(response_type= "in_channel", channel=channel_id, text=" 2nd it works!33!" )
     return "Hello world1" , 200
+
+@app.route("/newsapi", methods=["POST"])
+def newsapi():
+    data = request.form
+    channel_id = data.get('channel_id')
+    today = datetime.datetime.now().date()
+
+    api = NewsDataApiClient(apikey="pub_205194b814f4b3a8ef344988313fe445954eb")
+    response = api.news_api(q='o2 OR vodafone OR telekom', country='de')
+    articles = response['results']
+
+    for article in articles:
+        pub_date = datetime.datetime.strptime(article['pubDate'], '%Y-%m-%d %H:%M:%S').date()
+        if (today - pub_date).days < 3:
+            category = [c.lower() for c in article.get('category', [])]  # Get the category key and convert each category to lowercase
+            if 'sports' not in category:
+                # Check if 'description' key exists and if it is a string before calling translate_text()
+                description = article.get('description', None)
+                description_translated = translate_text(description) if description else ''
+                    
+                # Check if 'content' key exists and if it is a string before calling translate_text()
+                content = article.get('content', None)
+                content_translated = translate_text(content) if content else ''
+                
+                # Check if the keyword 'Telekom Baskets Bonn' is in the content or description
+                if 'Telekom Baskets Bonn' not in content_translated and 'Telekom Baskets Bonn' not in description_translated:
+                    link = article['link']
+                    title = translate_text(article['title'])
+                    message = f"• <{link}|{title}>\n"
+                    if description_translated:
+                        message += f"{description_translated}"
+                    try:
+                        response = client.chat_postMessage(
+                            channel=channel_id,
+                            text=message,
+                            unfurl_links=False,
+                        )
+                    except SlackApiError as e:
+                        print("Error sending message to Slack: {}".format(e))
+            
 
 # Start the Slack app using the Flask app as a middleware
 handler = SlackRequestHandler(slack_app)
