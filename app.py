@@ -48,8 +48,7 @@ def handle_hello_request():
     data = request.form
     channel_id = data.get('channel_id')
     # Execute the /hello command function
-    slack_app.client.chat_postMessage(response_type= "in_channel", channel=channel_id, text="it works!", )
-    client.chat_postMessage(response_type= "in_channel", channel=channel_id, text=" 2nd it works!33!", )
+    client.chat_postMessage(response_type= "in_channel", channel=channel_id, text=" 2nd it works!33!" )
     return "Hello world1" , 200
 
 # Start the Slack app using the Flask app as a middleware
