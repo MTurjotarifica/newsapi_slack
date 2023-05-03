@@ -43,7 +43,7 @@ def handle_slash_command():
     return make_response("", 200)
 
 # Add a route for the /hello command
-@app.route("/hello", methods=["POST"])
+@app.route("/hello2", methods=["POST"])
 def handle_hello_request():
     data = request.form
     channel_id = data.get('channel_id')
