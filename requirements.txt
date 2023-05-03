@@ -25,7 +25,6 @@ newsdataio
 numpy
 openpyxl
 pandas
-pathlib
 ply
 python-dateutil
 python-dotenv
