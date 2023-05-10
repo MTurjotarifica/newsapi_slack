@@ -67,10 +67,12 @@ def handle_hello_request():
 def newsapi():
     data = request.form
     channel_id = data.get('channel_id')
+    text = data.get('text')  # Get the query from the slash command
+
     today = datetime.datetime.now().date()
 
     api = NewsDataApiClient(apikey="pub_205194b814f4b3a8ef344988313fe445954eb")
-    response = api.news_api(q='o2 OR vodafone OR telekom', country='de')
+    response = api.news_api(q=text, country='de')  # Use the query in the API call
     articles = response['results']
 
     article_list = []
@@ -93,44 +95,38 @@ def newsapi():
                                     'Link': article['link'], 
                                     'Keywords': article['keywords'], 
                                     'Creator': article['creator'], 
-                                    'Content': content_translated, 
                                     'Description': description_translated, 
+                                    'Content': content_translated, 
                                     'PubDate': article['pubDate'], 
                                     'Image URL': article['image_url'], 
                                     'Category': category}
                     article_list.append(article_dict)
-
 
     df_new = pd.DataFrame(article_list)
 
     # Send the new links and translated text to Slack
     for index, row in df_new.iterrows():
         link = row['Link']
-        content = row['Content']
         description = row['Description']
+        content = row['Content']
         title = translate_text(row['Title'])
 
+        # Choose the text to send based on whether content or description is available
         if content:
-            # Send the content if it exists
-            message = content
+            text_to_send = content
         elif description:
-            # Send the description if content does not exist but description exists
-            message = description
+            text_to_send = description
         else:
-            # Send the title if neither content nor description exists
-            message = title
+            text_to_send = title
 
         try:
             response = client.chat_postMessage(
                 channel=channel_id,
-                text=f"• <{link}|{title}>\n{message}\n",
+                text=f"• <{link}|{title}>\n{text_to_send}",
                 unfurl_links=False,
             )
         except SlackApiError as e:
             print("Error sending message to Slack: {}".format(e))
-            
-    return "News articles sent to Slack", 200
-
             
 
 # Start the Slack app using the Flask app as a middleware
