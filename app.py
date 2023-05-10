@@ -44,7 +44,7 @@ def interactive_trigger():
     actions = data.get("actions")
     actions_value = data.get("actions.value")
     action_id = json.loads(data2['payload'])['actions'][0]['action_id']
-    print("text is :" text)
+    print ("text is" text)
     if action_id == "newsapi":
       today = datetime.datetime.now().date()
 
