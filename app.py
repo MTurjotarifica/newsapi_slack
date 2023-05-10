@@ -110,7 +110,7 @@ def interactive_trigger():
           except SlackApiError as e:
               print("Error sending message to Slack: {}".format(e))
               
-      return "News articles sent to Slack", 200
+      return text, 200
       
         
 # Add a route for the /hello command
