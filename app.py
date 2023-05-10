@@ -32,6 +32,47 @@ slack_app = App(
 
 client = slack_app.client
 
+def open_modal(trigger_id):
+    view = {
+        "type": "modal",
+        "callback_id": "newsapi_modal",
+        "title": {"type": "plain_text", "text": "NewsAPI Query"},
+        "blocks": [
+            {
+                "type": "input",
+                "block_id": "query_input_block",
+                "element": {
+                    "type": "plain_text_input",
+                    "action_id": "query_input",
+                },
+                "label": {
+                    "type": "plain_text",
+                    "text": "Enter query",
+                },
+            },
+            {
+                "type": "actions",
+                "elements": [
+                    {
+                        "type": "button",
+                        "text": {
+                            "type": "plain_text",
+                            "text": "Submit",
+                        },
+                        "value": "submit",
+                        "action_id": "submit_query",
+                        "style": "primary",
+                    },
+                ],
+            },
+        ],
+    }
+
+    try:
+        client.views_open(trigger_id=trigger_id, view=view)
+    except SlackApiError as e:
+        print("Error opening modal: {}".format(e))
+        
 # Add a route for the /hello command
 @app.route("/hello2", methods=["POST"])
 def handle_hello_request():
@@ -42,7 +83,12 @@ def handle_hello_request():
     return "Hello world1" , 200
 
 @app.route("/newsapi", methods=["POST"])
-def newsapi():
+def newsapi_route():
+    trigger_id = request.form.get("trigger_id")
+    open_modal(trigger_id)
+    return "", 200
+
+def newsapi(channel_id, query):
     data = request.form
     channel_id = data.get('channel_id')
     text = data.get('text')  # Get the query from the slash command
@@ -50,7 +96,7 @@ def newsapi():
     today = datetime.datetime.now().date()
 
     api = NewsDataApiClient(apikey="pub_205194b814f4b3a8ef344988313fe445954eb")
-    response = api.news_api(q=text, country='de')  # Use the query in the API call
+    response = api.news_api(q=query, country='de')  # Use the query in the API call
     articles = response['results']
 
     article_list = []
@@ -106,7 +152,14 @@ def newsapi():
         except SlackApiError as e:
             print("Error sending message to Slack: {}".format(e))
             
+@slack_app.view("newsapi_modal")
+def handle_newsapi_modal(ack, respond, body, logger):
+    ack()
+    query = body["view"]["state"]["values"]["query_input_block"]["query_input"]["value"]
+    channel_id = body["user"]["id"]
 
+    newsapi(channel_id, query)
+        
 # Start the Slack app using the Flask app as a middleware
 handler = SlackRequestHandler(slack_app)
 
