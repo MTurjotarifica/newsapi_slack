@@ -31,47 +31,85 @@ slack_app = App(
 )
 
 client = slack_app.client
+@app.route('/slack/interactive-endpoint', methods=['GET','POST'])
+def interactive_trigger():
 
-def open_modal(trigger_id):
-    view = {
-        "type": "modal",
-        "callback_id": "newsapi_modal",
-        "title": {"type": "plain_text", "text": "NewsAPI Query"},
-        "blocks": [
-            {
-                "type": "input",
-                "block_id": "query_input_block",
-                "element": {
-                    "type": "plain_text_input",
-                    "action_id": "query_input",
-                },
-                "label": {
-                    "type": "plain_text",
-                    "text": "Enter query",
-                },
-            },
-            {
-                "type": "actions",
-                "elements": [
-                    {
-                        "type": "button",
-                        "text": {
-                            "type": "plain_text",
-                            "text": "Submit",
-                        },
-                        "value": "submit",
-                        "action_id": "submit_query",
-                        "style": "primary",
-                    },
-                ],
-            },
-        ],
-    }
+    data = request.form
+    data2 = request.form.to_dict()
+    user_id = data.get('user_id')
+    channel_id = json.loads(data2['payload'])['container']['channel_id']
+    text = data.get('text')
 
-    try:
-        client.views_open(trigger_id=trigger_id, view=view)
-    except SlackApiError as e:
-        print("Error opening modal: {}".format(e))
+    response_url = json.loads(data2['payload'])['response_url']
+    actions = data.get("actions")
+    actions_value = data.get("actions.value")
+    action_id = json.loads(data2['payload'])['actions'][0]['action_id']
+
+    if action_id == "newsapi":
+      today = datetime.datetime.now().date()
+
+      api = NewsDataApiClient(apikey="pub_205194b814f4b3a8ef344988313fe445954eb")
+      response = api.news_api(q='o2 OR vodafone OR telekom', country='de')
+      articles = response['results']
+
+      article_list = []
+      for article in articles:
+          pub_date = datetime.datetime.strptime(article['pubDate'], '%Y-%m-%d %H:%M:%S').date()
+          if (today - pub_date).days < 3:
+              category = [c.lower() for c in article.get('category', [])]  # Get the category key and convert each category to lowercase
+              if 'sports' not in category:
+                  # Check if 'description' key exists and if it is a string before calling translate_text()
+                  description = article.get('description', None)
+                  description_translated = translate_text(description) if description else ''
+                      
+                  # Check if 'content' key exists and if it is a string before calling translate_text()
+                  content = article.get('content', None)
+                  content_translated = translate_text(content) if content else ''
+                  
+                  # Check if the keyword 'Telekom Baskets Bonn' is in the content or description
+                  if 'Telekom Baskets Bonn' not in content_translated and 'Telekom Baskets Bonn' not in description_translated:
+                      article_dict = {'Title': translate_text(article['title']), 
+                                      'Link': article['link'], 
+                                      'Keywords': article['keywords'], 
+                                      'Creator': article['creator'], 
+                                      'Content': content_translated, 
+                                      'Description': description_translated, 
+                                      'PubDate': article['pubDate'], 
+                                      'Image URL': article['image_url'], 
+                                      'Category': category}
+                      article_list.append(article_dict)
+
+
+      df_new = pd.DataFrame(article_list)
+
+      # Send the new links and translated text to Slack
+      for index, row in df_new.iterrows():
+          link = row['Link']
+          content = row['Content']
+          description = row['Description']
+          title = translate_text(row['Title'])
+
+          if content:
+              # Send the content if it exists
+              message = content
+          elif description:
+              # Send the description if content does not exist but description exists
+              message = description
+          else:
+              # Send the title if neither content nor description exists
+              message = title
+
+          try:
+              response = client.chat_postMessage(
+                  channel=channel_id,
+                  text=f"• <{link}|{title}>\n{message}\n",
+                  unfurl_links=False,
+              )
+          except SlackApiError as e:
+              print("Error sending message to Slack: {}".format(e))
+              
+      return "News articles sent to Slack", 200
+      
         
 # Add a route for the /hello command
 @app.route("/hello2", methods=["POST"])
@@ -83,82 +121,37 @@ def handle_hello_request():
     return "Hello world1" , 200
 
 @app.route("/newsapi", methods=["POST"])
-def newsapi_route():
-    trigger_id = request.form.get("trigger_id")
-    open_modal(trigger_id)
-    return "", 200
-
-def newsapi(channel_id, query):
+def newsapi():
     data = request.form
     channel_id = data.get('channel_id')
-    text = data.get('text')  # Get the query from the slash command
 
-    today = datetime.datetime.now().date()
+    #this creates the text prompt in slack block kit
+    newsapiquery = [
+        {
+           "type": "divider"
+           },
+        {
+            "dispatch_action": True,
+            "type": "input",
+            "element": {
+                "type": "plain_text_input",
+                "action_id": "newsapi"
+            },
+            "label": {
+                "type": "plain_text",
+                "text": "Please type the keyword for the visualization ",
+                "emoji": True
+            }
+        }
+    ]
 
-    api = NewsDataApiClient(apikey="pub_205194b814f4b3a8ef344988313fe445954eb")
-    response = api.news_api(q=query, country='de')  # Use the query in the API call
-    articles = response['results']
+    client.chat_postMessage(channel=channel_id, 
+                                        text="Query:  ",
+                                        blocks = newsapiquery
+                                        )
 
-    article_list = []
-    for article in articles:
-        pub_date = datetime.datetime.strptime(article['pubDate'], '%Y-%m-%d %H:%M:%S').date()
-        if (today - pub_date).days < 3:
-            category = [c.lower() for c in article.get('category', [])]  # Get the category key and convert each category to lowercase
-            if 'sports' not in category:
-                # Check if 'description' key exists and if it is a string before calling translate_text()
-                description = article.get('description', None)
-                description_translated = translate_text(description) if description else ''
-                    
-                # Check if 'content' key exists and if it is a string before calling translate_text()
-                content = article.get('content', None)
-                content_translated = translate_text(content) if content else ''
-                
-                # Check if the keyword 'Telekom Baskets Bonn' is in the content or description
-                if 'Telekom Baskets Bonn' not in content_translated and 'Telekom Baskets Bonn' not in description_translated:
-                    article_dict = {'Title': translate_text(article['title']), 
-                                    'Link': article['link'], 
-                                    'Keywords': article['keywords'], 
-                                    'Creator': article['creator'], 
-                                    'Description': description_translated, 
-                                    'Content': content_translated, 
-                                    'PubDate': article['pubDate'], 
-                                    'Image URL': article['image_url'], 
-                                    'Category': category}
-                    article_list.append(article_dict)
-
-    df_new = pd.DataFrame(article_list)
-
-    # Send the new links and translated text to Slack
-    for index, row in df_new.iterrows():
-        link = row['Link']
-        description = row['Description']
-        content = row['Content']
-        title = translate_text(row['Title'])
-
-        # Choose the text to send based on whether content or description is available
-        if content:
-            text_to_send = content
-        elif description:
-            text_to_send = description
-        else:
-            text_to_send = title
-
-        try:
-            response = client.chat_postMessage(
-                channel=channel_id,
-                text=f"• <{link}|{title}>\n{text_to_send}",
-                unfurl_links=False,
-            )
-        except SlackApiError as e:
-            print("Error sending message to Slack: {}".format(e))
-            
-@slack_app.view("newsapi_modal")
-def handle_newsapi_modal(ack, respond, body, logger):
-    ack()
-    query = body["view"]["state"]["values"]["query_input_block"]["query_input"]["value"]
-    channel_id = body["user"]["id"]
-
-    newsapi(channel_id, query)
+    #returning empty string with 200 response
+    return 'newsapi works', 200
         
 # Start the Slack app using the Flask app as a middleware
 handler = SlackRequestHandler(slack_app)
