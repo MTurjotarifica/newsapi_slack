@@ -93,8 +93,8 @@ def newsapi():
                                     'Link': article['link'], 
                                     'Keywords': article['keywords'], 
                                     'Creator': article['creator'], 
-                                    'Description': description_translated, 
                                     'Content': content_translated, 
+                                    'Description': description_translated, 
                                     'PubDate': article['pubDate'], 
                                     'Image URL': article['image_url'], 
                                     'Category': category}
@@ -106,34 +106,31 @@ def newsapi():
     # Send the new links and translated text to Slack
     for index, row in df_new.iterrows():
         link = row['Link']
+        content = row['Content']
         description = row['Description']
-        print(description)
         title = translate_text(row['Title'])
 
-        # Save the text to a file with the name format <article_title>_text.md
-        if description:
-            filename = f"article_text.md"
-            with open(filename, 'w') as f:
-                f.write(description)
-
-            try:
-                response = client.chat_postMessage(
-                    channel=channel_id,
-                    text=f"• <{link}|{title}>\n",
-                    unfurl_links=False,
-                )
-                with open(filename, 'r') as f:
-                    content = f.read()
-
-                
-                response = client.files_upload(channels=channel_id,
-                                                file=filename,                                              
-                                                )
-
-            except SlackApiError as e:
-                print("Error sending message to Slack: {}".format(e))
+        if content:
+            # Send the content if it exists
+            message = content
+        elif description:
+            # Send the description if content does not exist but description exists
+            message = description
         else:
-            print("oops")
+            # Send the title if neither content nor description exists
+            message = title
+
+        try:
+            response = client.chat_postMessage(
+                channel=channel_id,
+                text=f"• <{link}|{title}>\n{message}\n",
+                unfurl_links=False,
+            )
+        except SlackApiError as e:
+            print("Error sending message to Slack: {}".format(e))
+            
+    return "News articles sent to Slack", 200
+
             
 
 # Start the Slack app using the Flask app as a middleware
