@@ -45,7 +45,7 @@ def interactive_trigger():
     actions_value = data.get("actions.value")
     action_id = json.loads(data2['payload'])['actions'][0]['action_id']
 
-    
+    client.chat_postMessage(channel=channel_id, text="A backgroundworker is running your task. Please wait.")
         
     if action_id == "newsapi":
       today = datetime.datetime.now().date()
@@ -141,7 +141,7 @@ def newsapi():
             },
             "label": {
                 "type": "plain_text",
-                "text": "Please type the keyword for the visualization ",
+                "text": "Please type the keyword for the query ",
                 "emoji": True
             }
         }
