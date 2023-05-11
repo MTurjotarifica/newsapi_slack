@@ -51,7 +51,7 @@ def interactive_trigger():
       today = datetime.datetime.now().date()
 
       api = NewsDataApiClient(apikey="pub_205194b814f4b3a8ef344988313fe445954eb")
-      response = api.news_api(q='o2 OR vodafone OR telekom', country='de')
+      response = api.news_api(q=text, country='de')
       articles = response['results']
 
       article_list = []
