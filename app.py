@@ -16,12 +16,14 @@ from newsdataapi import NewsDataApiClient
 import datetime
 import deepl
 
+from functions import *
+
 load_dotenv()
 
-def translate_text(text):
-        translator = deepl.Translator('bb771f1c-93f7-4ee5-ceed-74dad6649600')
-        result = translator.translate_text(text, target_lang='EN-US')
-        return result.text
+# def translate_text(text):
+#         translator = deepl.Translator('bb771f1c-93f7-4ee5-ceed-74dad6649600')
+#         result = translator.translate_text(text, target_lang='EN-US')
+#         return result.text
 
 # Initialize the Flask app and the Slack app
 app = Flask(__name__)
@@ -31,6 +33,12 @@ slack_app = App(
 )
 
 client = slack_app.client
+
+urls, titles, descriptions =newsapi_query()
+
+translated_title, translated_description = newsgpt(urls, titles, descriptions)
+
+
 @app.route('/slack/interactive-endpoint', methods=['GET','POST'])
 def interactive_trigger():
 
@@ -155,7 +163,25 @@ def newsapi():
 
     #returning empty string with 200 response
     return 'newsapi works', 200
-        
+
+@app.route("/newsgpt", methods=["POST"])
+def newsapi():
+    data = request.form
+    channel_id = data.get('channel_id')
+    
+    try:
+        for i in range (len(translated_description)):
+            response = client.chat_postMessage(
+                        channel=channel_id,
+                        text=f"• <{urls[i]}|{translated_title[i]}>\n{translated_description[i]}\n",
+                        unfurl_links=False,
+                    )
+    except SlackApiError as e:
+        print("Error sending message to Slack: {}".format(e))
+                
+    #returning empty string with 200 response
+    return 'newsapi works', 200
+
 # Start the Slack app using the Flask app as a middleware
 handler = SlackRequestHandler(slack_app)
 
