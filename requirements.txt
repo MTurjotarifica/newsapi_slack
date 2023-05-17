@@ -42,3 +42,4 @@ text-unidecode
 tzdata
 uninews
 urllib3
+openai
